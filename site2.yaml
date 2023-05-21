@@ -1,0 +1,134 @@
+---
+- hosts: all 
+  gather_facts: yes
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: updating all hosts 
+      apt:
+        update_cache: yes
+
+- hosts: webservers 
+  become: true
+  become_method: sudo
+  gather_facts: true
+  tasks:
+    - name: update all webservers 
+      apt:
+        update_cache: true
+
+    - name: Installing nginx
+      apt:
+        name: nginx
+        state: latest
+        update_cache: true
+
+    - name: pip install
+      apt:
+        name: python3-pip
+        state: latest
+        update_cache: true
+
+    - name: Installing flask app
+      pip:
+        executable: pip3
+        name: flask
+        state: latest
+
+
+    - name: apt update
+      apt:
+        update_cache: true
+
+    - name: Installing flask service deployment
+      pip:
+        executable: pip3
+        name: gunicorn
+        state: latest
+
+    - name: apt update
+      apt:
+        update_cache: true
+
+    - name: copy flask app 
+      copy:
+        src: /$PWD/app.py
+        dest: /home/ubuntu/app.py
+        owner: ubuntu
+        mode: '0644'
+
+    - name: deploying Flask application 
+      shell: gunicorn -w 2 -D -b 0.0.0.0:5000 app:app
+
+    - name: install snmpd 
+      apt:
+        name: snmpd
+        state: latest
+        update_cache: true
+
+    - name: configure snmpd
+      template:
+             src: snmpd.conf
+             dest: /etc/snmp/snmpd.conf
+
+    - name: restarting snmpd
+      service:
+            name: snmpd
+            state: restarted
+
+    - name: apt update
+      apt:
+        update_cache: true
+- hosts: all
+  gather_facts: true
+
+- hosts: HAproxy 
+  become: true
+  tasks:
+    - name: update HAproxy
+      apt:
+        update_cache: yes
+
+    - name: Installing HAPROXY(LB)
+      apt:
+        name: haproxy
+        state: present
+        update_cache: true
+
+    - name: Configure haproxy
+      template:
+             src: /$PWD/haproxy.cfg.j2
+             dest: /etc/haproxy/haproxy.cfg
+
+    - name: Restart haproxy
+      service:
+        name: haproxy
+        state: restarted
+
+    - name: apt update
+      apt:
+        update_cache: true
+
+    - name: Installing Nginx(LB)
+      apt:
+        name: nginx
+        update_cache: yes
+        state: latest
+
+    - name: configure nginx udp port
+      template:
+             src: nginxport.conf
+             dest: /etc/nginx/sites-available/default
+
+    - name: configure udp for loadbalancing
+      template:
+             src: nginxload.conf
+             dest: /etc/nginx/nginx.conf
+
+    - name: Restart Nginx
+      service:
+            name: nginx
+            state: restarted
+    - name: apt update
+      apt:
+        update_cache: true
